@@ -10,9 +10,9 @@ async function register(req, res) {
     try {
         const { nom, prenom, email, password, role, photo, specialite, classes,vms } = req.body;
         const hashedPassword = await bcrypt.hashPassword(password);
-        const newteacher = new teachers({ nom, prenom, email, password : hashedPassword, role, photo, specialite, classes,vms });
-        await newteacher.save();
-        res.status(201).json({ message: 'teacher registered successfully' });
+        const newTeacher = new Teachers({ nom, prenom, email, password : hashedPassword, role, photo, specialite, classes,vms });
+        await newTeacher.save();
+        res.status(201).json({ message: 'Teacher registered successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -21,7 +21,7 @@ async function register(req, res) {
 async function login(req, res) {
     try {
         const data = req.body;
-        const teacher = await teachers.findOne({ email: data.email });
+        const teacher = await Teachers.findOne({ email: data.email });
         //const { email, password } = req.body;
         //const teacher = await findOne({ email });
         if (!teacher) {
@@ -58,6 +58,68 @@ async function getById (req, res) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });
     }
-};
-
-module.exports = { register, login,getById };
+}
+async function getTeachers   (req, res)  {
+    try {
+      const teachers = await Teachers.find();
+      res.json(teachers);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+  
+  async function addTeacher  (req, res) {
+    const teacher = new Teachers({
+      nom: req.body.nom,
+      prenom: req.body.prenom,
+      email: req.body.email,
+      password: req.body.password,
+      role: req.body.role,
+      photo: req.body.photo,
+      specialite: req.body.specialite,
+      classes: req.body.classes,
+      vms: req.body.vms,
+    });
+  
+    try {
+      const newTeacher = await teacher.save();
+      res.status(201).json(newTeacher);
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+  };
+  
+  async function  updateTeacher  (req, res)  {
+    try {
+      const updatedTeacher = await Teachers.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        { new: true, runValidators: true }
+      );
+      if (!updatedTeacher) {
+        return res.status(404).json({ message: 'Teacher not found' });
+      }
+      res.json(updatedTeacher);
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+  };
+  
+  async function  deleteTeacher  (req, res) {
+    try {
+      await Teachers.findByIdAndDelete(req.params.id);
+      res.json({ message: 'Teacher deleted' });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+  
+  async function  deleteTeachers  (req, res)  {
+    try {
+      await Teachers.deleteMany({ _id: { $in: req.body.ids } });
+      res.json({ message: 'Teachers deleted' });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+module.exports = { register, login,getById,getTeachers,addTeacher,updateTeacher,deleteTeacher,deleteTeachers};

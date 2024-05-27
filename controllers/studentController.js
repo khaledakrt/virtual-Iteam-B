@@ -41,7 +41,7 @@ async function login(req, res) {
         res.status(500).json({ error: error.message });
     }
 }
-// Route to get a teacher by ID
+// Route to get a student by ID
 async function getById (req, res) {
     const { id } = req.params;
 
@@ -54,7 +54,65 @@ async function getById (req, res) {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });
+    }    
+}
+async function getStudents   (req, res)  {
+    try {
+      const students = await Students.find();
+      res.json(students);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
     }
-};
+  };
 
-module.exports = { register, login, getById };
+  async function addStudent  (req, res) {
+    const student = new Students({
+      nom: req.body.nom,
+      prenom: req.body.prenom,
+      email: req.body.email,
+      password: req.body.password,
+      role: req.body.role,
+      photo: req.body.photo,
+      classe: req.body.classes,
+      vms: req.body.vms,
+    });
+    try {
+        const newStudent = await student.save();
+        res.status(201).json(newStudent);
+      } catch (err) {
+        res.status(400).json({ message: err.message });
+      }
+    };
+    async function  updateStudent  (req, res)  {
+        try {
+          const updatedStudent = await Teachers.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+          );
+          if (!updatedStudent) {
+            return res.status(404).json({ message: 'Student not found' });
+          }
+          res.json(updatedStudent);
+        } catch (err) {
+          res.status(400).json({ message: err.message });
+        }
+      };
+      async function  deleteStudent  (req, res) {
+        try {
+          await Students.findByIdAndDelete(req.params.id);
+          res.json({ message: 'Student deleted' });
+        } catch (err) {
+          res.status(500).json({ message: err.message });
+        }
+      };
+      async function  deleteStudents  (req, res)  {
+        try {
+          await Students.deleteMany({ _id: { $in: req.body.ids } });
+          res.json({ message: 'Students deleted' });
+        } catch (err) {
+          res.status(500).json({ message: err.message });
+        }
+      };
+
+module.exports = { register, login, getById, getStudents, addStudent, updateStudent, deleteStudent, deleteStudents};
