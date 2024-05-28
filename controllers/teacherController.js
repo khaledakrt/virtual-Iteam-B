@@ -1,4 +1,3 @@
-//const teachers = require('../models/Teachers');
 const bcrypt = require('../helpers/bcrypt');
 const jwt = require('../helpers/jwt');
 const Teachers = require('../models/Teachers');

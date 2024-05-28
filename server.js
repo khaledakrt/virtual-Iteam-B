@@ -4,10 +4,10 @@ const mongoose = require('mongoose');
 const adminRoutes = require('./routes/adminroute');
 const studentRoutes = require('./routes/studentRoute');
 const teacherRoutes = require('./routes/teacherRoute');
-const vmsRoutes = require('./routes/vmsRoute');
+const aaa = require('./routes/vmsRoute');
 const cors = require('cors');
 
-
+const port = process.env.PORT || 3001;
 const app = express();
 require('dotenv').config();
 
@@ -38,7 +38,12 @@ app.use('/teacher', teacherRoutes);
 
 // services for vms operations
 //app.use('/vms', syncRoute)
-app.use('/vms', vmsRoutes);
+//app.use('/vms', vmsRoutes);
+//app.use('/sync-data', vmsRoutes);
+//app.use('/routes', vmsRoutes);
+// Démarrage du serveur
+// Use VM routes
+app.use('/vm', aaa);
 
 // Start the server
 const PORT = process.env.PORT || 3000;

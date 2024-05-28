@@ -17,7 +17,8 @@
     "express": "^4.19.2",
     "express-session": "^1.18.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.4.0"
+    "mongoose": "^8.4.0",
+    "pkgcloud": "^2.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.1"

@@ -1,85 +1,99 @@
 const axios = require('axios');
-const { getOpenStackData } = require('../services/openstack');
-const VmModel = require('../models/Vms');
-const mongoose = require('mongoose');
+const VmModel = require('../models/vms');
 
-// Connect to MongoDB
-mongoose.connect('mongodb+srv://khakrout:Tunisie2024**@iteam-db.x2fxcnj.mongodb.net/iteam-db', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 30000, // Increase the server selection timeout (in milliseconds)
-    socketTimeoutMS: 45000 // Increase the socket timeout (in milliseconds)
-  })
-  .then(() => {
-    console.log('Connected to MongoDB');
-    // Once connected, call the main function
-    main();
-  })
-  .catch((error) => {
-    console.error('Failed to connect to MongoDB:', error);
-  });
-
-async function main() {
+async function getOpenStackData(authToken) {
     try {
-      // Retrieve OpenStack data
-      const authToken = 'gAAAAABmUwi2Jf3uo2b2c8lDMTMB8hAX759j01MFcGYRtXqwQn-GpGWLv_USuESFAR0MhGl_CAwvXClLxlHnzuCWkIAtoPPli9WpB6GRpa-WtkjrN8nDkTosiBcnWSmRaX0L-O-mtOwC9K8AuAb8ynmh_gEPUvgTgLxHvd8WDt5TtmqRqtUB634';
-      const openstackApiUrl = 'http://192.168.122.100:8774/v2.1/servers';
-      const response = await axios.get(openstackApiUrl, {
-        headers: { 'X-Auth-Token': authToken }
-      });
-      const servers = response.data.servers;
-  
-      // Prepare data for MongoDB insertion
-      const serverData = [];
-      for (const server of servers) {
-        const serverId = server.id;
-        const serverName = server.name;
-  
-        // Fetch detailed server information
-        const detailsResponse = await axios.get(`${openstackApiUrl}/${serverId}`, {
-          headers: { 'X-Auth-Token': authToken }
-        });
-        const serverDetails = detailsResponse.data.server;
-        const addresses = serverDetails.addresses;
-  
-        console.log('Addresses:', addresses);
-  
-        // Extract private and floating IP addresses
-        const privateIps = [];
-        const floatingIps = [];
-        for (const networkName in addresses) {
-          for (const addressInfo of addresses[networkName]) {
-            console.log('Address:', addressInfo.addr, 'Type:', addressInfo['OS-EXT-IPS:type']);
-            if (addressInfo['OS-EXT-IPS:type'] === 'fixed') {
-              privateIps.push(addressInfo.addr);
-            } else if (addressInfo['OS-EXT-IPS:type'] === 'floating') {
-              floatingIps.push(addressInfo.addr);
-            }
-          }
-        }
-  
-        console.log('Private IPs:', privateIps);
-        console.log('Floating IPs:', floatingIps);
-  
-        // Check if the server with the same ID already exists in the database
-        const existingServer = await VmModel.findOne({ id: serverId });
-        if (!existingServer) {
-          // Push server data to array if it's not already in the database
-          serverData.push({
-            id: serverId,
-            name: serverName,
-            private_ips: privateIps.join(', '),
-            floating_ips: floatingIps.join(', ')
-          });
-        }
-      }
-
-      // Save new data to MongoDB
-      console.log('Server Data:', serverData); // Add this line to log serverData
-      await VmModel.insertMany(serverData, { bufferCommands: false });
-      console.log('Data saved successfully.');
-
+        const api_url = 'http://192.168.122.100:8774/v2.1/servers';
+        const response = await axios.get(api_url, { headers: { 'X-Auth-Token': authToken } });
+        return response.data.servers;
     } catch (error) {
-      console.error('Error:', error.response ? error.response.data : error.message);
+        console.error('Erreur lors de la récupération des données depuis l\'API OpenStack :', error);
+        throw error;
     }
 }
+
+async function synchronizeWithDatabase(authToken) {
+  try {
+      const servers = await getOpenStackData(authToken);
+      const serverData = [];
+
+      for (const server of servers) {
+          const serverId = server.id;
+          const serverName = server.name;
+
+          const existingServer = await VmModel.findOne({ id: serverId });
+
+          if (!existingServer) {
+              let privateIps = [];
+              let floatingIps = [];
+
+              // Fetch detailed server information
+              const detailsResponse = await axios.get(`http://192.168.122.100:8774/v2.1/servers/${serverId}`, {
+                headers: { 'X-Auth-Token': authToken }
+              });
+              const serverDetails = detailsResponse.data.server;
+              const addresses = serverDetails.addresses;
+
+              for (const networkName in addresses) {
+                  for (const addressInfo of addresses[networkName]) {
+                      if (addressInfo['OS-EXT-IPS:type'] === 'fixed') {
+                          privateIps.push(addressInfo.addr);
+                      } else if (addressInfo['OS-EXT-IPS:type'] === 'floating') {
+                          floatingIps.push(addressInfo.addr);
+                      }
+                  }
+              }
+
+              // Join IP arrays into strings
+              privateIps = privateIps.join(', ');
+              floatingIps = floatingIps.join(', ');
+
+              serverData.push({
+                  id: serverId,
+                  name: serverName,
+                  private_ips: privateIps,
+                  floating_ips: floatingIps
+              });
+          }
+      }
+
+      if (serverData.length > 0) {
+          await VmModel.insertMany(serverData);
+          console.log('Server data inserted successfully.');
+      } else {
+          console.log('No new data to insert.');
+      }
+  } catch (error) {
+      console.error('Error synchronizing servers with database:', error);
+  }
+}
+
+async function getVms(req, res) {
+    try {
+        const vms = await VmModel.find();
+        res.json(vms);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des VMs:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des VMs.' });
+    }
+}
+
+async function deleteVm(req, res) {
+    try {
+        await VmModel.findByIdAndDelete(req.params.id);
+        res.json({ message: 'VM supprimée avec succès.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur lors de la suppression de la VM.' });
+    }
+}
+
+async function deleteVms(req, res) {
+    try {
+        await VmModel.deleteMany({ _id: { $in: req.body.ids } });
+        res.json({ message: 'VMs supprimées avec succès.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur lors de la suppression des VMs.' });
+    }
+}
+
+module.exports = { synchronizeWithDatabase, getVms, deleteVm, deleteVms };

@@ -30,9 +30,9 @@ async function login(req, res) {
         }
         const tokenPayload = {
             email: student.email,
-            _id: student._id, // Assuming this is the teacher's ID
+            _id: student._id, // Assuming this is the student's ID
             name: `${student.nom} ${student.prenom}`, // Combine first name and last name
-            role: student.role // Assuming you have a 'role' field in your teachers schema
+            role: student.role // Assuming you have a 'role' field in your students schema
             // Add other fields as needed
         };
         const token = jwt.generateToken(tokenPayload);
@@ -85,7 +85,7 @@ async function getStudents   (req, res)  {
     };
     async function  updateStudent  (req, res)  {
         try {
-          const updatedStudent = await Teachers.findByIdAndUpdate(
+          const updatedStudent = await Students.findByIdAndUpdate(
             req.params.id,
             req.body,
             { new: true, runValidators: true }
