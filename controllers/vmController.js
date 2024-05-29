@@ -12,6 +12,17 @@ async function getOpenStackData(authToken) {
     }
 }
 
+async function getOpenStackData(authToken) {
+  try {
+      const api_url = 'http://192.168.122.100:8774/v2.1/servers';
+      const response = await axios.get(api_url, { headers: { 'X-Auth-Token': authToken } });
+      return response.data.servers;
+  } catch (error) {
+      console.error('Error retrieving data from OpenStack API:', error);
+      throw error;
+  }
+}
+
 async function synchronizeWithDatabase(authToken) {
   try {
       const servers = await getOpenStackData(authToken);
@@ -24,16 +35,17 @@ async function synchronizeWithDatabase(authToken) {
           const existingServer = await VmModel.findOne({ id: serverId });
 
           if (!existingServer) {
-              let privateIps = [];
-              let floatingIps = [];
-
-              // Fetch detailed server information
+              const privateIps = [];
+              const floatingIps = [];
+              
+              // Fetch details of the server to get its status
               const detailsResponse = await axios.get(`http://192.168.122.100:8774/v2.1/servers/${serverId}`, {
-                headers: { 'X-Auth-Token': authToken }
+                  headers: { 'X-Auth-Token': authToken }
               });
               const serverDetails = detailsResponse.data.server;
-              const addresses = serverDetails.addresses;
+              const status = serverDetails.status;
 
+              const addresses = serverDetails.addresses;
               for (const networkName in addresses) {
                   for (const addressInfo of addresses[networkName]) {
                       if (addressInfo['OS-EXT-IPS:type'] === 'fixed') {
@@ -44,15 +56,12 @@ async function synchronizeWithDatabase(authToken) {
                   }
               }
 
-              // Join IP arrays into strings
-              privateIps = privateIps.join(', ');
-              floatingIps = floatingIps.join(', ');
-
               serverData.push({
                   id: serverId,
                   name: serverName,
-                  private_ips: privateIps,
-                  floating_ips: floatingIps
+                  private_ips: privateIps.join(', '),
+                  floating_ips: floatingIps.join(', '),
+                  status: status
               });
           }
       }
@@ -67,6 +76,7 @@ async function synchronizeWithDatabase(authToken) {
       console.error('Error synchronizing servers with database:', error);
   }
 }
+
 
 async function getVms(req, res) {
     try {

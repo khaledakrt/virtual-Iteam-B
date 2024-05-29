@@ -1,9 +1,12 @@
-
+//server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const adminRoutes = require('./routes/adminroute');
 const studentRoutes = require('./routes/studentRoute');
 const teacherRoutes = require('./routes/teacherRoute');
+const curriculumRoutes = require('./routes/curriculumRoutes');
+const path = require('path');
+
 const aaa = require('./routes/vmsRoute');
 const cors = require('cors');
 
@@ -44,6 +47,10 @@ app.use('/teacher', teacherRoutes);
 // Démarrage du serveur
 // Use VM routes
 app.use('/vm', aaa);
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+//app.use('/api', curriculumRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 3000;

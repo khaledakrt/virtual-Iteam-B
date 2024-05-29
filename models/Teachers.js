@@ -1,3 +1,5 @@
+
+//Teachersmodel.js
 const mongoose = require('mongoose');
 
 const teachersSchema = new mongoose.Schema({

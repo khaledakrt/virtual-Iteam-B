@@ -1,15 +1,39 @@
 const Students = require('../models/Students');
 const bcrypt = require('../helpers/bcrypt');
 const jwt = require('../helpers/jwt');
+const path = require('path');
+const multer = require('multer');
 
-
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, './uploads'));
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}_${file.originalname}`);
+  }
+});
+const upload = multer({ storage: storage });
 
 async function register(req, res) {
     console.log('herrre')
     try {
-        const { nom, prenom, email, password, role, photo, classe, vms } = req.body;
+        const { nom, prenom, email, password, role, classe, vms } = req.body;
         const hashedPassword = await bcrypt.hashPassword(password);
-        const newStudent = new Students({ nom, prenom, email, password: hashedPassword, role, photo, classe, vms });
+        
+        //const newStudent = new Students({ nom, prenom, email, password: hashedPassword, role, photo, classe, vms });
+        // Check if a photo was uploaded
+        const photoPath = req.file ? `uploads/${req.file.filename}` : '';
+        const newStudent = new Students({ 
+          nom, 
+          prenom, 
+          email, 
+          password: hashedPassword, 
+          role, 
+          photo: photoPath, 
+          classe, 
+          vms 
+        });
+        
         await newStudent.save();
         res.status(201).json({ message: 'Student registered successfully' });
     } catch (error) {
@@ -115,4 +139,4 @@ async function getStudents   (req, res)  {
         }
       };
 
-module.exports = { register, login, getById, getStudents, addStudent, updateStudent, deleteStudent, deleteStudents};
+module.exports = { register, login, getById, getStudents, addStudent, updateStudent, deleteStudent, deleteStudents, upload};
