@@ -1,3 +1,4 @@
+//auth.js
 const axios = require('axios');
 
 class Auth {

@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const adminRoutes = require('./routes/adminroute');
 const studentRoutes = require('./routes/studentRoute');
 const teacherRoutes = require('./routes/teacherRoute');
+
 const curriculumRoutes = require('./routes/curriculumRoutes');
 const requestRoutes = require('./routes/requestRoute'); // Make sure this path is correct
 const dotenv = require('dotenv');
@@ -12,7 +13,8 @@ const Flavors = require('./Openstack-API/openstack-client/flavors');
 const Networks = require('./Openstack-API/openstack-client/networks');
 const Images = require('./Openstack-API/openstack-client/images');
 const Instances = require('./Openstack-API/openstack-client/instances');
-const auth_token = 'gAAAAABmWIXXuxWaSPYqpkmLfflEY8D-mS_rdY3PSyNtt1lnxEGGpsJpeMFA47q4-U6cJlVph_DdehyBbs10L7HqAzM_1AI-EelFGOxY4an1jpTYpEQJlhAQ98L_QazzPXMnanCWkuGbKPxBko9n9zdUIMzwLdsX0juQuyMaNcjZW83lD2wI7mo';
+const ServerGroups  = require('./Openstack-API/openstack-client/servergroups');
+const auth_token = 'gAAAAABmWdhxEZBjCtsHlphZ3hlKQkM7xFYaMHtzJ-Wj8y8Nc9uGDIzu-xA33-0S-6wIWVgmhe1Fsy0kOXcd5opmCG7dqVHY8KDrI-FmYMVLs-4ES0eCZUYPcGDLOa_mQUKKm4uWf99IsD7NpEk-RFX2-A__yH2iex3-ahoQP84YVbUyVV1YRE4';
 const api_url = 'http://192.168.122.100:8774/v2.1/servers';
 const axios = require('axios');
 const { tabulate } = require('tabulate');
@@ -28,6 +30,8 @@ const images = new Images(auth);
 const instances = new Instances(auth);
 const port = process.env.PORT || 3001;
 const app = express();
+const serverGroups = new ServerGroups(auth); // Correct instantiation
+
 require('dotenv').config();
 
 // Autoriser les requêtes de votre frontend
@@ -99,52 +103,74 @@ app.get('/flavors', async (req, res) => {
       res.status(500).json({ error: 'Failed to fetch images: ' + error.message });
     }
   });
-  app.get('/instances', (req, res) => {
-    axios.get(api_url, { headers: { 'X-Auth-Token': auth_token } })
-        .then(response => {
-            const servers = response.data.servers;
-            const promises = servers.map(server => {
-                return axios.get(`${api_url}/${server.id}`, { headers: { 'X-Auth-Token': auth_token } })
-                    .then(detailsResponse => {
-                        const serverDetails = detailsResponse.data.server;
-                        const private_ips = [];
-                        const floating_ips = [];
 
-                        if (serverDetails.addresses) {
-                            for (const network in serverDetails.addresses) {
-                                serverDetails.addresses[network].forEach(address => {
-                                    if (address['OS-EXT-IPS:type'] === 'fixed') {
-                                        private_ips.push(address.addr);
-                                    } else if (address['OS-EXT-IPS:type'] === 'floating') {
-                                        floating_ips.push(address.addr);
-                                    }
-                                });
-                            }
-                        }
+  app.get('/server-groups', async (req, res) => {
+    try {
+      const data = await serverGroups.getServerGroups();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch server groups: ' + error.message });
+    }
+  });
 
-                        const status = serverDetails.status || 'Unknown';
-                        const server_group = serverDetails['os-extended-server-groups:server_group'] || 'None';
-
-                        return {
-                            id: server.id,
-                            name: server.name,
-                            private_ips: private_ips || [],
-                            floating_ips: floating_ips || [],
-                            status: status,
-                            server_group: server_group
-                        };
-                    });
+  app.get('/instances', async (req, res) => {
+    try {
+        // Retrieve server groups data
+        const serverGroupsData = await serverGroups.getServerGroups();
+        
+        // Map server groups to create a mapping between instance IDs and their corresponding server groups
+        const instanceServerGroupMap = {};
+        serverGroupsData.forEach(serverGroup => {
+            serverGroup.members.forEach(instanceId => {
+                instanceServerGroupMap[instanceId] = serverGroup.name;
             });
-
-            return Promise.all(promises);
-        })
-        .then(instances => {
-            res.json(instances); // Return JSON data
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            res.status(500).json({ error: 'Failed to fetch instances' });
         });
+
+        // Fetch instances data
+        const response = await axios.get(api_url, { headers: { 'X-Auth-Token': auth_token } });
+        const servers = response.data.servers;
+
+        // Fetch details for each instance
+        const promises = servers.map(server => {
+            return axios.get(`${api_url}/${server.id}`, { headers: { 'X-Auth-Token': auth_token } })
+                .then(detailsResponse => {
+                    const serverDetails = detailsResponse.data.server;
+                    const private_ips = [];
+                    const floating_ips = [];
+
+                    if (serverDetails.addresses) {
+                        for (const network in serverDetails.addresses) {
+                            serverDetails.addresses[network].forEach(address => {
+                                if (address['OS-EXT-IPS:type'] === 'fixed') {
+                                    private_ips.push(address.addr);
+                                } else if (address['OS-EXT-IPS:type'] === 'floating') {
+                                    floating_ips.push(address.addr);
+                                }
+                            });
+                        }
+                    }
+
+                    const status = serverDetails.status || 'Unknown';
+                    const server_group = instanceServerGroupMap[server.id] || 'None'; // Get server group name from the mapping
+
+                    return {
+                        id: server.id,
+                        name: server.name,
+                        private_ips: private_ips || [],
+                        floating_ips: floating_ips || [],
+                        status: status,
+                        server_group: server_group
+                    };
+                });
+        });
+
+        // Process the promises and send the instances data as response
+        const instances = await Promise.all(promises);
+        res.json(instances);
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Failed to fetch instances' });
+    }
 });
 
 
