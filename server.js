@@ -17,7 +17,7 @@ const Networks = require('./Openstack-API/openstack-client/networks');
 const Images = require('./Openstack-API/openstack-client/images');
 const Instances = require('./Openstack-API/openstack-client/instances');
 const ServerGroups  = require('./Openstack-API/openstack-client/servergroups');
-const auth_token = 'gAAAAABmdLx2t-SMNR7PtPVG67qJqebom7Vj96G2lTq3a32fVMFxhep4HobJ9KWA-A_cVDp31_Di8-w40KtrMNx43oABxHlYh8C_6yrKQh3uBLzhBl5b2KNcAfRj6ZR8J2JeRnf6wT_-7zMz_PiukDK3PK1Ovx9GCvSq0RkaRAqs-lTtlBD6UZA';
+const auth_token = 'gAAAAABmht5XQf2JWMoYxwFAtqMBNsVbc5AOq8Yhjdg-3sr3syuNB--H_JTVFlzYtNlrSCrEkXFl84f__gTjMU3ZQcDnCGCe2azDPcP_7ziBh9u5uwOTSfocO-8VBblI1GKO1ihbAWeRVuNojsjwlnqoJU7ZWPuetQvaPJeUekpXH6rPkvJha4I';
 const api_url = 'http://192.168.122.100:8774/v2.1/servers';
 const axios = require('axios');
 const { tabulate } = require('tabulate');
@@ -68,6 +68,20 @@ app.use('/group', groupRoutes);
 
 app.use('/create-instance', createInstancesRoute); // Use the route
 
+// Mounting the teacherRoute
+app.use('/api/teachers', teacherRoutes); // Adjust the base path as needed
+
+
+
+
+app.use('/api/students', studentRoutes); // Mount student routes
+app.use('/api/teachers', teacherRoutes); // Mount teacher routes
+
+
+
+
+
+
 // services for vms operations
 //app.use('/vms', syncRoute)
 //app.use('/vms', vmsRoutes);
@@ -81,6 +95,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 //app.use('/api', curriculumRoutes);
 
+app.use('/students', studentRoutes);
 
 
 //get information from Openstack
